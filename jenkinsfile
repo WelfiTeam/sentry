@@ -60,6 +60,7 @@ pipeline {
                     
                     # Ejecuta las migraciones iniciales
                     docker-compose exec -T web upgrade
+                    
                 '''
             }
         }

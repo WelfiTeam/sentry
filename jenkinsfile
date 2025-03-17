@@ -1,0 +1,87 @@
+pipeline {
+    agent any
+    
+    environment {
+        SENTRY_PATH='/opt/sentry'
+        COMPOSE_PROJECT_NAME=credentials('COMPOSE_PROJECT_NAME')
+        // # Set COMPOSE_PROFILES to "feature-complete" to enable all features
+        // # To enable errors monitoring only, set COMPOSE_PROFILES=errors-only
+        // # See https://develop.sentry.dev/self-hosted/experimental/errors-only/
+        COMPOSE_PROFILES=credentials('COMPOSE_PROFILES')
+        SENTRY_EVENT_RETENTION_DAYS=credentials('SENTRY_EVENT_RETENTION_DAYS')
+        // # You can either use a port number or an IP:PORT combo for SENTRY_BIND
+        // # See https://docs.docker.com/compose/compose-file/#ports for more
+        SENTRY_BIND=credentials('SENTRY_BIND')
+        // # Set SENTRY_MAIL_HOST to a valid FQDN (host/domain name) to be able to send emails!
+        // # SENTRY_MAIL_HOST=example.com
+        SENTRY_IMAGE=credentials('SENTRY_IMAGE')
+        SNUBA_IMAGE=credentials('SNUBA_IMAGE')
+        RELAY_IMAGE=credentials('RELAY_IMAGE')
+        SYMBOLICATOR_IMAGE=credentials('SYMBOLICATOR_IMAGE')
+        VROOM_IMAGE=credentials('VROOM_IMAGE')
+        HEALTHCHECK_INTERVAL=credentials('HEALTHCHECK_INTERVAL')
+        HEALTHCHECK_TIMEOUT=credentials('HEALTHCHECK_TIMEOUT')
+        HEALTHCHECK_RETRIES=credentials('HEALTHCHECK_RETRIES')
+        // # Caution: Raising max connections of postgres increases CPU and RAM usage
+        // # see https://github.com/getsentry/self-hosted/pull/2740 for more information
+        POSTGRES_MAX_CONNECTIONS=credentials('POSTGRES_MAX_CONNECTIONS')
+        // # Set SETUP_JS_SDK_ASSETS to 1 to enable the setup of JS SDK assets
+        // # SETUP_JS_SDK_ASSETS=1
+
+    }
+    
+    stages {
+        stage('Clone Configuration') {
+            steps {
+                // Clona tu repositorio con la configuración personalizada de Sentry
+                git 'git@github.com:WelfiTeam/sentry.git'
+            }
+        }
+        
+        stage('Setup Sentry') {
+            steps {
+                // Asegúrate de que Jenkins tenga permisos para ejecutar Docker
+                sh '''
+                    mkdir -p ${SENTRY_PATH}
+                    cp -R * ${SENTRY_PATH}
+                    cd ${SENTRY_PATH}
+                    
+                    # Detiene contenedores existentes si los hay
+                    docker-compose down
+                    
+                    # Crea directorio para volúmenes si no existe
+                    mkdir -p ${SENTRY_PATH}/data
+                    
+                    # Inicia los servicios
+                    docker-compose up -d
+                    
+                    # Espera a que los servicios estén disponibles
+                    sleep 30
+                    
+                    # Ejecuta las migraciones iniciales
+                    docker-compose exec -T web upgrade
+                '''
+            }
+        }
+        
+        stage('Create Admin User') {
+            steps {
+                // Crea un usuario admin si es la primera instalación
+                sh '''
+                    cd ${SENTRY_PATH}
+                    docker-compose exec -T web createuser \
+                        --email admin@example.com \
+                        --password complexpassword \
+                        --superuser
+                '''
+            }
+        }
+    }
+    
+    post {
+        always {
+            // Limpia workspace después de la ejecución
+            cleanWs()
+        }
+    }
+}

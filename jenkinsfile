@@ -3,41 +3,34 @@ pipeline {
     
     environment {
         SENTRY_PATH='/opt/sentry'
-        COMPOSE_PROJECT_NAME=credentials('COMPOSE_PROJECT_NAME')
+        COMPOSE_PROJECT_NAME='sentry-self-hosted'
         // # Set COMPOSE_PROFILES to "feature-complete" to enable all features
         // # To enable errors monitoring only, set COMPOSE_PROFILES=errors-only
         // # See https://develop.sentry.dev/self-hosted/experimental/errors-only/
-        COMPOSE_PROFILES=credentials('COMPOSE_PROFILES')
-        SENTRY_EVENT_RETENTION_DAYS=credentials('SENTRY_EVENT_RETENTION_DAYS')
+        COMPOSE_PROFILES='feature-complete'
+        SENTRY_EVENT_RETENTION_DAYS=90
         // # You can either use a port number or an IP:PORT combo for SENTRY_BIND
         // # See https://docs.docker.com/compose/compose-file/#ports for more
-        SENTRY_BIND=credentials('SENTRY_BIND')
+        SENTRY_BIND=9000
         // # Set SENTRY_MAIL_HOST to a valid FQDN (host/domain name) to be able to send emails!
         // # SENTRY_MAIL_HOST=example.com
-        SENTRY_IMAGE=credentials('SENTRY_IMAGE')
-        SNUBA_IMAGE=credentials('SNUBA_IMAGE')
-        RELAY_IMAGE=credentials('RELAY_IMAGE')
-        SYMBOLICATOR_IMAGE=credentials('SYMBOLICATOR_IMAGE')
-        VROOM_IMAGE=credentials('VROOM_IMAGE')
-        HEALTHCHECK_INTERVAL=credentials('HEALTHCHECK_INTERVAL')
-        HEALTHCHECK_TIMEOUT=credentials('HEALTHCHECK_TIMEOUT')
-        HEALTHCHECK_RETRIES=credentials('HEALTHCHECK_RETRIES')
+        SENTRY_IMAGE='getsentry/sentry:25.2.0'
+        SNUBA_IMAGE='getsentry/snuba:25.2.0'
+        RELAY_IMAGE='getsentry/relay:25.2.0'
+        SYMBOLICATOR_IMAGE='getsentry/symbolicator:25.2.0'
+        VROOM_IMAGE='getsentry/vroom:25.2.0'
+        HEALTHCHECK_INTERVAL='30s'
+        HEALTHCHECK_TIMEOUT='1m30s'
+        HEALTHCHECK_RETRIES='10'
         // # Caution: Raising max connections of postgres increases CPU and RAM usage
         // # see https://github.com/getsentry/self-hosted/pull/2740 for more information
-        POSTGRES_MAX_CONNECTIONS=credentials('POSTGRES_MAX_CONNECTIONS')
+        POSTGRES_MAX_CONNECTIONS=100
         // # Set SETUP_JS_SDK_ASSETS to 1 to enable the setup of JS SDK assets
         // # SETUP_JS_SDK_ASSETS=1
 
     }
     
     stages {
-        stage('Clone Configuration') {
-            steps {
-                // Clona tu repositorio con la configuración personalizada de Sentry
-                git 'git@github.com:WelfiTeam/sentry.git'
-            }
-        }
-        
         stage('Setup Sentry') {
             steps {
                 // Asegúrate de que Jenkins tenga permisos para ejecutar Docker
@@ -60,7 +53,7 @@ pipeline {
                     
                     # Ejecuta las migraciones iniciales
                     docker-compose exec -T web upgrade
-                    
+
                 '''
             }
         }
